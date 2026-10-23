@@ -17,7 +17,7 @@ async function withServer(password, run) {
   child.stdout.on("data", chunk => { logs = (logs + chunk).slice(-10_000); });
   child.stderr.on("data", chunk => { logs = (logs + chunk).slice(-10_000); });
   const base = `http://127.0.0.1:${port}`;
-  const request = (path, headers = {}) => fetch(base + path, {headers, signal: AbortSignal.timeout(15_000), redirect: "manual"});
+  const request = (path, headers = {}, options = {}) => fetch(base + path, {...options, headers, signal: AbortSignal.timeout(15_000), redirect: "manual"});
   try {
     let ready = false;
     for (let i = 0; i < 100; i++) {
@@ -25,7 +25,7 @@ async function withServer(password, run) {
       try { const response = await request("/api/search"); await response.body?.cancel(); ready = true; break; } catch { await delay(100); }
     }
     assert.ok(ready, `Server did not start: ${logs}`);
-    await run(request);
+    await run(request, base);
   } finally {
     child.kill("SIGTERM");
     await Promise.race([new Promise(resolve => child.once("exit", resolve)), delay(5000)]);
@@ -44,11 +44,13 @@ await withServer(undefined, async request => {
 console.log("PASS: missing password fails closed for pages and API");
 
 const password = randomBytes(32).toString("base64url");
-const credentials = {authorization: `Basic ${Buffer.from(`openkitty:${password}`).toString("base64")}`};
-await withServer(password, async request => {
+await withServer(password, async (request, base) => {
+  const post = (path, body, origin = base) => request(path, { origin, "content-type": "application/x-www-form-urlencoded" }, { method: "POST", body: new URLSearchParams(body) });
   for (const path of ["/", "/charts", "/api/search?q=a", "/app/unknown"]) {
     const response = await request(path);
-    assert.equal(response.status, 401, path);
+    assert.equal(response.status, path.startsWith("/api/") ? 401 : 307, path);
+    assert.equal(response.headers.get("www-authenticate"), null);
+    if (!path.startsWith("/api/")) assert.equal(new URL(response.headers.get("location")).pathname, "/login");
     await response.body?.cancel();
   }
   const bypass = await request("/api/search?q=a", {"x-middleware-subrequest": "middleware:middleware:middleware:middleware:middleware"});
@@ -57,6 +59,46 @@ await withServer(password, async request => {
   const wrong = await request("/api/search", {authorization: "Basic " + Buffer.from("openkitty:wrong").toString("base64")});
   assert.equal(wrong.status, 401);
   await wrong.body?.cancel();
+  const loginPage = await request("/login?next=%2Fads");
+  assert.equal(loginPage.status, 200);
+  assert.equal(loginPage.headers.get("referrer-policy"), "same-origin", "native forms need a non-null Origin");
+  assert.match(loginPage.headers.get("content-security-policy"), /form-action 'self'/);
+  assert.match(loginPage.headers.get("cache-control"), /no-store/);
+  const loginHtml = await loginPage.text();
+  assert.match(loginHtml, /action="\/api\/auth\/login"/);
+  assert.match(loginHtml, /type="password"/);
+  assert.match(loginHtml, /name="next" value="\/ads"/);
+  assert.ok(!loginHtml.includes(password));
+  const invalid = await post("/api/auth/login", {password: "wrong", next: "/ads"});
+  assert.equal(invalid.status, 303);
+  assert.equal(invalid.headers.get("set-cookie"), null);
+  const invalidUrl = new URL(invalid.headers.get("location"), base);
+  assert.equal(invalidUrl.searchParams.get("error"), "invalid");
+  const errorPage = await request(invalidUrl.pathname + invalidUrl.search);
+  assert.match(await errorPage.text(), /password wasn/);
+  for (const origin of ["https://evil.example", ""]) {
+    const csrf = await post("/api/auth/login", {password}, origin);
+    assert.equal(csrf.status, 403);
+    assert.equal(csrf.headers.get("set-cookie"), null);
+    await csrf.body?.cancel();
+  }
+  const oversized = await post("/api/auth/login", {password: "a".repeat(5000)});
+  assert.equal(oversized.status, 400);
+  await oversized.body?.cancel();
+  const signedIn = await post("/api/auth/login", {password, next: "/ads"});
+  assert.equal(signedIn.status, 303);
+  assert.equal(new URL(signedIn.headers.get("location"), base).href, base + "/ads");
+  const setCookie = signedIn.headers.get("set-cookie");
+  for (const flag of ["HttpOnly", "Secure", "SameSite=Lax", "Max-Age=43200", "Path=/"]) assert.ok(setCookie.includes(flag), flag);
+  assert.ok(!setCookie.includes(password));
+  const credentials = {cookie: setCookie.split(";")[0]};
+  const tampered = await request("/api/search", {cookie: credentials.cookie + "x"});
+  assert.equal(tampered.status, 401);
+  await tampered.body?.cancel();
+  const loginAgain = await request("/login?next=%2Fads", credentials);
+  assert.equal(loginAgain.status, 307);
+  assert.equal(new URL(loginAgain.headers.get("location"), base).pathname, "/ads");
+  await loginAgain.body?.cancel();
   const root = await request("/", credentials);
   assert.equal(root.status, 200);
   const rootHtml = await root.text();
@@ -96,5 +138,23 @@ await withServer(password, async request => {
     assert.equal(response.status, 200);
   }
   assert.ok(limited, "Repeated searches must be throttled");
+  const csrfLogout = await post("/api/auth/logout", {}, "https://evil.example");
+  assert.equal(csrfLogout.status, 403);
+  assert.equal(csrfLogout.headers.get("set-cookie"), null);
+  await csrfLogout.body?.cancel();
+  const logout = await post("/api/auth/logout", {});
+  assert.equal(logout.status, 303);
+  assert.match(logout.headers.get("set-cookie"), /Max-Age=0/);
+  const afterLogout = await request("/", {cookie: logout.headers.get("set-cookie").split(";")[0]});
+  assert.equal(afterLogout.status, 307);
+  await afterLogout.body?.cancel();
+  let loginLimited = false;
+  for (let i = 0; i < 21; i++) {
+    const response = await post("/api/auth/login", {password: "wrong"});
+    if (new URL(response.headers.get("location"), base).searchParams.get("error") === "limited") {
+      assert.equal(response.headers.get("retry-after"), "60"); loginLimited = true; break;
+    }
+  }
+  assert.ok(loginLimited, "Repeated login attempts must be throttled");
 });
-console.log("PASS: password enforcement, bypass-header rejection, bounded search, validation, image optimizer disabled, app detail, and throttling");
+console.log("PASS: HTML sign-in, signed cookies, CSRF checks, logout, login throttling, password enforcement, bypass-header rejection, bounded search, validation, image optimizer disabled, app detail, and throttling");

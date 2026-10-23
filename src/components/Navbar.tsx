@@ -15,6 +15,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
 
   const navItems = [
     { name: "Explore", href: "/", icon: Compass },
@@ -70,6 +71,9 @@ export default function Navbar() {
 
         {/* Right Status */}
         <div className="flex items-center gap-3">
+          <form action="/api/auth/logout" method="post">
+            <button type="submit" className="rounded-lg px-2 py-1 text-xs text-zinc-400 hover:text-white focus-visible:outline focus-visible:outline-white">Sign out</button>
+          </form>
           <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-400">
             <span className="flex h-1.5 w-1.5 rounded-full bg-white" />
             <span className="hidden sm:inline">Whole Store Engine</span>
