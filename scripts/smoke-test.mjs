@@ -10,7 +10,7 @@ async function withServer(password, run) {
   await new Promise(resolve => reserve.listen(0, "127.0.0.1", resolve));
   const port = reserve.address().port;
   await new Promise(resolve => reserve.close(resolve));
-  const env = { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1" };
+  const env = { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1", OPENKITTY_GROSSING_BUNDLED: "1" };
   if (password) env.OPENKITTY_PASSWORD = password; else delete env.OPENKITTY_PASSWORD;
   const child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)], {env, stdio: ["ignore", "pipe", "pipe"]});
   let logs = "";
@@ -34,7 +34,7 @@ async function withServer(password, run) {
 }
 
 await withServer(undefined, async request => {
-  for (const path of ["/", "/api/search?q=a", "/app/unknown"]) {
+  for (const path of ["/", "/api/search?q=a", "/api/grossing", "/app/unknown"]) {
     const response = await request(path);
     assert.equal(response.status, 503, path);
     assert.match(response.headers.get("cache-control"), /no-store/);
@@ -46,7 +46,7 @@ console.log("PASS: missing password fails closed for pages and API");
 const password = randomBytes(32).toString("base64url");
 await withServer(password, async (request, base) => {
   const post = (path, body, origin = base) => request(path, { origin, "content-type": "application/x-www-form-urlencoded" }, { method: "POST", body: new URLSearchParams(body) });
-  for (const path of ["/", "/charts", "/api/search?q=a", "/app/unknown"]) {
+  for (const path of ["/", "/charts", "/api/search?q=a", "/api/grossing", "/app/unknown"]) {
     const response = await request(path);
     assert.equal(response.status, path.startsWith("/api/") ? 401 : 307, path);
     assert.equal(response.headers.get("www-authenticate"), null);
@@ -102,25 +102,41 @@ await withServer(password, async (request, base) => {
   const root = await request("/", credentials);
   assert.equal(root.status, 200);
   const rootHtml = await root.text();
-  assert.ok(rootHtml.includes("App Store Explorer"), "Authenticated home page should render the app");
+  assert.ok(rootHtml.includes("Top Grossing"), "Authenticated home page should render the app");
   assert.match(rootHtml, /Unavailable/);
-  assert.match(rootHtml, /Apple iTunes Search API/);
+  assert.match(rootHtml, /Apple Top Grossing/);
+  assert.match(rootHtml, /Baseline collected|days<!-- --> collected/);
   assert.ok(!rootHtml.includes("Updated Daily"));
   assert.ok(!rootHtml.includes("Highest Revenue"));
   assert.ok(Buffer.byteLength(rootHtml) < 1_000_000, "Home page must not serialize the full catalog into HTML");
-  for (const path of ["/ads", "/onboarding", "/trending", "/rising", "/charts", "/aso"]) {
+  for (const path of ["/ads", "/onboarding", "/trending", "/rising", "/charts", "/aso", "/explore"]) {
     const page = await request(path, credentials);
     assert.equal(page.status, 200, path);
     const html = await page.text();
     assert.ok(Buffer.byteLength(html) < 1_000_000, `${path} must remain below the Vercel page-size limit`);
-    assert.match(html, /Unavailable/);
-    assert.ok(!html.includes("15,000"));
+    assert.match(html, /[Uu]navailable/);
+
     if (path === "/ads") {
       for (const url of ["https://www.facebook.com/ads/library/", "https://adstransparency.google.com/", "https://ads.tiktok.com/business/creativecenter/"]) assert.ok(html.includes(url));
       assert.ok(!html.includes("Estimated Spend"));
     }
     if (path === "/onboarding") assert.match(html, /not verified paywalls/);
     if (path === "/ads" || path === "/onboarding") assert.ok(html.includes("Next page"), `${path} must expose the rest of the catalog through pagination`);
+  }
+  const chartResponse = await request("/api/grossing", credentials);
+  assert.equal(chartResponse.status, 200);
+  assert.match(chartResponse.headers.get("cache-control"), /no-store/);
+  const chartBody = await chartResponse.json();
+  assert.equal(chartBody.total, 100); assert.equal(chartBody.rows.length, 25);
+  assert.equal(chartBody.rows[0].rank, 1); assert.equal(chartBody.sourceFallback, true);
+  const lastRanks = await (await request("/api/grossing?chart=health&page=4", credentials)).json();
+  assert.equal(lastRanks.rows.at(-1).rank, 100);
+  const candidates = await (await request("/api/grossing?mode=shortlist&chart=all", credentials)).json();
+  assert.ok(candidates.total > 0);
+  assert.ok(candidates.rows.every(row => row.reasons.length > 0 && !row.majorPublisher));
+  for (const query of ["chart=bad", "days=2", "page=-1", "mode=bad", "chart=all"]) {
+    const invalidChart = await request("/api/grossing?" + query, credentials);
+    assert.equal(invalidChart.status, 400); await invalidChart.body?.cancel();
   }
   const search = await request("/api/search?q=a", credentials);
   assert.equal(search.status, 200);

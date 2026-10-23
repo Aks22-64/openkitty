@@ -1,0 +1,34 @@
+name: Daily grossing charts
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: daily-grossing-main
+  cancel-in-progress: false
+jobs:
+  collect:
+    # Standard public-repository runners are free. Do not start if made private.
+    if: github.repository == 'Aks22-64/openkitty' && github.ref == 'refs/heads/main' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Verify collector and publication invariants
+        run: node --test tests/grossing.test.mjs
+      - name: Collect real Apple observations
+        run: node scripts/collect-grossing.mjs
+      - name: Publish only the public data file
+        run: node scripts/publish-grossing.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

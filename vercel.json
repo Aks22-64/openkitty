@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npx --yes --ignore-scripts pnpm@11.25.0 install --frozen-lockfile --ignore-scripts",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "ignoreCommand": "node scripts/ignore-data-build.mjs"
 }

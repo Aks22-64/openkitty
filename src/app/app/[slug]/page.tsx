@@ -9,6 +9,7 @@ import { formatNumber } from "@/lib/utils";
 import DataSource from "@/components/DataSource";
 import AdLibraryLinks from "@/components/AdLibraryLinks";
 import UnavailableMetrics from "@/components/UnavailableMetrics";
+import GrossingAppEvidence from "@/components/GrossingAppEvidence";
 
 export default async function AppDetailPage({ params, searchParams }: {
   params: Promise<{ slug: string }>; searchParams: Promise<{ refresh?: string }>;
@@ -56,8 +57,9 @@ export default async function AppDetailPage({ params, searchParams }: {
       <dl className="grid grid-cols-2 gap-4 rounded-xl border border-zinc-800 p-5 sm:grid-cols-3">{facts.map(([label, value]) => <div key={label}><dt className="text-xs text-zinc-400">{label}</dt><dd className="mt-1 text-sm">{value}</dd></div>)}</dl>
       <p className="text-xs text-zinc-400">Store price is the upfront download price. Subscription and in-app purchase pricing: Unavailable.</p>
     </section>
-    <section className="space-y-3"><h2 className="text-lg font-bold">Market metrics</h2><p className="text-sm text-zinc-400">Apple&apos;s public listing API does not supply these metrics. No values are estimated or generated.</p>
-      <UnavailableMetrics labels={["Monthly revenue", "Monthly downloads", "Active ads", "Ad spend", "Chart rank", "Rank movement"]} />
+    <GrossingAppEvidence id={app.id} />
+    <section className="space-y-3"><h2 className="text-lg font-bold">Unavailable market metrics</h2><p className="text-sm text-zinc-400">Apple&apos;s public listing API does not supply these metrics. No values are estimated or generated.</p>
+      <UnavailableMetrics labels={["Monthly revenue", "Monthly downloads", "Active ads", "Ad spend"]} />
       <p className="text-xs text-zinc-400">Daily and lifetime revenue/downloads, momentum and advertising performance are also unavailable.</p>
     </section>
     <section className="space-y-3"><h2 className="text-lg font-bold">Free ad library links</h2><AdLibraryLinks name={app.name} developer={app.developer} detailed /></section>

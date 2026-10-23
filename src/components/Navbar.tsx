@@ -7,9 +7,7 @@ import {
   TrendingUp, 
   Sparkles, 
   Eye, 
-  CreditCard, 
   BarChart2,
-  PieChart,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -17,13 +15,11 @@ export default function Navbar() {
   if (pathname === "/login") return null;
 
   const navItems = [
-    { name: "Explore", href: "/", icon: Compass },
-    { name: "Catalog", href: "/charts", icon: PieChart },
-    { name: "Trending", href: "/trending", icon: TrendingUp },
-    { name: "Releases", href: "/rising", icon: Sparkles },
+    { name: "Grossing", href: "/", icon: BarChart2 },
+    { name: "Movers", href: "/trending", icon: TrendingUp },
+    { name: "Shortlist", href: "/rising", icon: Sparkles },
+    { name: "Store Search", href: "/explore", icon: Compass },
     { name: "Ad Libraries", href: "/ads", icon: Eye },
-    { name: "Screenshots", href: "/onboarding", icon: CreditCard },
-    { name: "Keywords", href: "/aso", icon: BarChart2 },
   ];
 
   return (
@@ -75,7 +71,7 @@ export default function Navbar() {
           </form>
           <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-400">
             <span className="flex h-1.5 w-1.5 rounded-full bg-white" />
-            <span className="hidden sm:inline">Free store data</span>
+            <span className="hidden sm:inline">Free chart data</span>
             <span className="text-zinc-700 hidden sm:inline">|</span>
             <span className="text-zinc-200 font-mono text-[11px]">US · iOS</span>
           </div>

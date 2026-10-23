@@ -3,8 +3,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "OpenKitty - Free App Store Research",
-  description: "Explore Apple App Store listings, ratings, prices and screenshots with clear sources and free ad library links. Unsupported metrics are marked unavailable.",
+  title: "OpenKitty - Grossing App Research",
+  description: "Track genuine US iOS grossing ranks daily and research newer apps with smaller rating footprints. Free sources with transparent limitations.",
   keywords: "openkitty, App Store research, store listings, ad libraries",
 };
 
@@ -25,14 +25,14 @@ export default function RootLayout({
             <div className="flex items-center gap-2">
               <span className="font-bold text-white tracking-tight">openkitty</span>
               <span className="text-zinc-600">—</span>
-              <span>Free App Store research</span>
+              <span>Free grossing app research</span>
             </div>
             <div className="flex items-center gap-4 text-zinc-500 text-[11px]">
               <span>Sources shown on each listing</span>
               <span>•</span>
-              <span>US iOS catalog sample</span>
+              <span>US iOS grossing charts</span>
               <span>•</span>
-              <span>Live Apple search</span>
+              <span>Daily observations</span>
             </div>
           </div>
         </footer>
