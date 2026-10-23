@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { getPaywalls } from "@/lib/data";
+import CatalogPagination, { CATALOG_PAGE_SIZE } from "@/components/CatalogPagination";
 import { CreditCard, Search, Tag, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
@@ -9,6 +10,7 @@ export default function PaywallsPage() {
   const paywalls = useMemo(() => getPaywalls(), []);
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("All");
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     return paywalls.filter((p) => {
@@ -50,7 +52,7 @@ export default function PaywallsPage() {
             type="text"
             placeholder="Search by app name or category..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="w-full rounded-xl border border-zinc-800 bg-[#09090b] pl-10 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:border-white focus:outline-none transition"
           />
         </div>
@@ -58,7 +60,7 @@ export default function PaywallsPage() {
         <div className="flex w-full sm:w-auto items-center gap-2">
           <select
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
+            onChange={(e) => { setSelectedType(e.target.value); setPage(1); }}
             className="rounded-xl border border-zinc-800 bg-[#09090b] px-3 py-2 text-xs font-semibold text-white focus:border-white focus:outline-none transition"
           >
             <option value="All">All Paywall Types</option>
@@ -71,7 +73,7 @@ export default function PaywallsPage() {
 
       {/* Paywalls Showcase */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((pw) => (
+        {filtered.slice((page - 1) * CATALOG_PAGE_SIZE, page * CATALOG_PAGE_SIZE).map((pw) => (
           <div
             key={pw.id}
             className="flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-800 bg-[#09090b] transition duration-200 hover:border-zinc-500 hover:shadow-[0_0_25px_rgba(255,255,255,0.05)]"
@@ -147,6 +149,7 @@ export default function PaywallsPage() {
           </div>
         ))}
       </div>
+      <CatalogPagination page={page} total={filtered.length} onPageChange={setPage} />
     </div>
   );
 }

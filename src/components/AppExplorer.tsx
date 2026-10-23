@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { AppItem } from "@/lib/types";
+import { allApps, getTrendingApps, getRisingApps } from "@/lib/data";
 import AppCard from "./AppCard";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { 
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 
 interface AppExplorerProps {
-  initialApps: AppItem[];
+  catalog?: "all" | "trending" | "rising";
   title?: string;
   subtitle?: string;
   defaultSort?: string;
@@ -29,11 +30,18 @@ interface AppExplorerProps {
 const ITEMS_PER_PAGE = 48;
 
 export default function AppExplorer({ 
-  initialApps, 
+  catalog = "all",
   title = "Explore Mobile Apps & Games", 
   subtitle = "Market intelligence across the entire App Store & Google Play Store. Track revenue, downloads, velocity, and winning creatives.",
   defaultSort = "revenue"
 }: AppExplorerProps) {
+  // Keep the public catalog in the shared client bundle instead of serializing
+  // every record into each page's HTML and React Server Component payload.
+  const initialApps = useMemo(() => {
+    if (catalog === "trending") return getTrendingApps();
+    if (catalog === "rising") return getRisingApps();
+    return allApps;
+  }, [catalog]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [releaseFilter, setReleaseFilter] = useState<"all" | "new" | "classic">("all");

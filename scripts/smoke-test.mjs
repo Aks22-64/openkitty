@@ -59,7 +59,16 @@ await withServer(password, async request => {
   await wrong.body?.cancel();
   const root = await request("/", credentials);
   assert.equal(root.status, 200);
-  assert.ok((await root.text()).includes("Mobile App Market Intelligence"), "Authenticated home page should render the app");
+  const rootHtml = await root.text();
+  assert.ok(rootHtml.includes("Mobile App Market Intelligence"), "Authenticated home page should render the app");
+  assert.ok(Buffer.byteLength(rootHtml) < 1_000_000, "Home page must not serialize the full catalog into HTML");
+  for (const path of ["/ads", "/onboarding", "/trending", "/rising", "/charts", "/aso"]) {
+    const page = await request(path, credentials);
+    assert.equal(page.status, 200, path);
+    const html = await page.text();
+    assert.ok(Buffer.byteLength(html) < 1_000_000, `${path} must remain below the Vercel page-size limit`);
+    if (path === "/ads" || path === "/onboarding") assert.ok(html.includes("Next page"), `${path} must expose the rest of the catalog through pagination`);
+  }
   const search = await request("/api/search?q=a", credentials);
   assert.equal(search.status, 200);
   assert.match(search.headers.get("cache-control"), /no-store/);
