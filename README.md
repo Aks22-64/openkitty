@@ -2,7 +2,9 @@
 
 A password-protected fork of [Ishak-ctrl-ui/openkitty](https://github.com/Ishak-ctrl-ui/openkitty), a Next.js app for exploring public App Store information.
 
-**Data quality:** app listings and images come from store data, but many revenue, download, trend, ad and paywall figures are estimates, simulations or hardcoded examples. They are not verified market intelligence.
+**Free data only:** the bundled catalog is a fresh sample of US iOS listings retrieved from Apple's public API. Every listing carries the source, country, platform and retrieval timestamp. The catalog is a saved snapshot; Search Store and the app-detail refresh button retrieve current data on demand. Android data is unavailable.
+
+Revenue, downloads, chart ranks, momentum, ad counts/spend, subscription tiers, paywall analysis and keyword scores are unavailable (`null` in JSON). They are never inferred from search order, substituted with zero, or randomly generated. Prices are upfront store prices; screenshots are store promotional images, not verified ads or paywalls. Meta, Google and TikTok links open free research destinations; they do not prove a matching campaign exists. No paid provider, trial, API key or subscription is configured.
 
 ## Security changes
 
@@ -59,6 +61,8 @@ The smoke test starts temporary loopback-only production servers with an ephemer
 
 ## Data refresh
 
-The upstream scheduled ingestion is disabled in this fork. Its legacy script replaces the bundled 15,000-record dataset with a much smaller collection, so it should not be enabled casually. A manual run additionally requires the repository variable `ENABLE_DATA_SYNC=true`. Review the ingestion behavior before setting that variable.
+Run `node scripts/refresh-catalog.mjs` manually to rebuild the sample using Apple's US top-free/top-paid discovery feeds and software lookups. Both feeds are free to access; "top-paid" means apps with an upfront download price. Chart order is not used as a measured rank. Requests are bounded and paced below Apple's approximate 20 calls/minute limit. The script replaces the snapshot only after successful collection, preserving the previous data on failure. Review the data diff, run the checks, commit and deploy to publish a refreshed snapshot.
+
+The upstream generators and ingestion workflow were removed because they fabricated metrics and could reintroduce them. There is no automatic daily refresh. The source API documentation is https://performance-partners.apple.com/search-api. Displayed category counts describe this sample, not market share.
 
 The original source, history and attribution are retained. Upstream describes the project as MIT licensed.

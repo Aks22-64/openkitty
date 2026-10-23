@@ -1,12 +1,5 @@
 import AppExplorer from "@/components/AppExplorer";
-
-export default function RisingPage() {
-  return (
-    <AppExplorer
-      catalog="rising"
-      title="Rising Stars"
-      subtitle="Newly surfaced mobile apps with rapid 24h category climbing velocity."
-      defaultSort="momentum"
-    />
-  );
+export default function RecentPage() {
+  return <AppExplorer title="Release dates" subtitle="Browse this catalog by original App Store release date." defaultSort="newest"
+    notice="Growth and rising-star scores: Unavailable. A recent release date does not indicate growth, adoption or rank momentum." />;
 }

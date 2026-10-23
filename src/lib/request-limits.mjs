@@ -11,11 +11,17 @@ export function parseSearchQuery(raw) {
   return raw.trim().toLowerCase();
 }
 
+// List views need only one image and no long description. Keep API payloads small;
+// the authenticated detail route retains the full store record.
+export function toSearchResult(app) {
+  return { ...app, description: null, screenshots: (app.screenshots ?? []).slice(0, 1) };
+}
+
 export function findLocalMatches(apps, query) {
   const matches = [];
   for (const app of apps) {
     if (!query || [app.name, app.developer, app.category].some((value) => value.toLowerCase().includes(query))) {
-      matches.push(app);
+      matches.push(toSearchResult(app));
       if (matches.length === MAX_SEARCH_RESULTS) break;
     }
   }
@@ -25,7 +31,7 @@ export function findLocalMatches(apps, query) {
 export function mergeSearchResults(local, live) {
   const results = [];
   const seen = new Set();
-  for (const app of [...local, ...live]) {
+  for (const app of [...live, ...local]) {
     if (seen.has(app.id)) continue;
     seen.add(app.id);
     results.push(app);

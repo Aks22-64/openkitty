@@ -5,7 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(val: number): string {
+export function formatCurrency(val: number | null): string {
+  if (val === null) return "Unavailable";
   if (val >= 1_000_000_000) {
     return `$${(val / 1_000_000_000).toFixed(1)}B`;
   }
@@ -18,7 +19,8 @@ export function formatCurrency(val: number): string {
   return `$${val.toLocaleString()}`;
 }
 
-export function formatNumber(val: number): string {
+export function formatNumber(val: number | null): string {
+  if (val === null) return "Unavailable";
   if (val >= 1_000_000_000) {
     return `${(val / 1_000_000_000).toFixed(1)}B`;
   }

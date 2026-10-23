@@ -49,9 +49,9 @@ test("queries reject oversized and control-character input before searching", ()
   assert.throws(() => parseSearchQuery("a".repeat(121)), RangeError);
   assert.throws(() => parseSearchQuery("a\nb"), RangeError);
 });
-test("the original broad-query response is capped against the real dataset", async () => {
+test("broad-query responses stay capped against the sourced catalog", async () => {
   const apps = JSON.parse(await readFile(new URL("../src/data/apps.json", import.meta.url)));
-  assert.ok(apps.filter(a => [a.name, a.developer, a.category].some(v => v.toLowerCase().includes("a"))).length > 10_000);
+  assert.ok(apps.filter(a => [a.name, a.developer, a.category].some(v => v.toLowerCase().includes("a"))).length > 48);
   const results = findLocalMatches(apps, "a");
   assert.equal(results.length, 48);
   assert.ok(Buffer.byteLength(JSON.stringify({ results })) < 200_000);

@@ -102,13 +102,24 @@ await withServer(password, async (request, base) => {
   const root = await request("/", credentials);
   assert.equal(root.status, 200);
   const rootHtml = await root.text();
-  assert.ok(rootHtml.includes("Mobile App Market Intelligence"), "Authenticated home page should render the app");
+  assert.ok(rootHtml.includes("App Store Explorer"), "Authenticated home page should render the app");
+  assert.match(rootHtml, /Unavailable/);
+  assert.match(rootHtml, /Apple iTunes Search API/);
+  assert.ok(!rootHtml.includes("Updated Daily"));
+  assert.ok(!rootHtml.includes("Highest Revenue"));
   assert.ok(Buffer.byteLength(rootHtml) < 1_000_000, "Home page must not serialize the full catalog into HTML");
   for (const path of ["/ads", "/onboarding", "/trending", "/rising", "/charts", "/aso"]) {
     const page = await request(path, credentials);
     assert.equal(page.status, 200, path);
     const html = await page.text();
     assert.ok(Buffer.byteLength(html) < 1_000_000, `${path} must remain below the Vercel page-size limit`);
+    assert.match(html, /Unavailable/);
+    assert.ok(!html.includes("15,000"));
+    if (path === "/ads") {
+      for (const url of ["https://www.facebook.com/ads/library/", "https://adstransparency.google.com/", "https://ads.tiktok.com/business/creativecenter/"]) assert.ok(html.includes(url));
+      assert.ok(!html.includes("Estimated Spend"));
+    }
+    if (path === "/onboarding") assert.match(html, /not verified paywalls/);
     if (path === "/ads" || path === "/onboarding") assert.ok(html.includes("Next page"), `${path} must expose the rest of the catalog through pagination`);
   }
   const search = await request("/api/search?q=a", credentials);
@@ -117,6 +128,12 @@ await withServer(password, async (request, base) => {
   assert.equal(search.headers.get("x-content-type-options"), "nosniff");
   const body = await search.text();
   assert.equal(JSON.parse(body).results.length, 48);
+  for (const app of JSON.parse(body).results) {
+    for (const metric of ["estMonthlyRevenue", "estMonthlyDownloads", "activeAdsCount", "currentRank", "rankVelocity", "iapTiers"]) assert.equal(app[metric], null);
+    assert.equal(app.sourceName, "Apple iTunes Search API");
+    assert.equal(app.sourceMode, "snapshot");
+    assert.ok(app.sourceRetrievedAt);
+  }
   assert.ok(Buffer.byteLength(body) < 200_000);
   for (const q of ["a".repeat(121), "a\nb"]) {
     const response = await request("/api/search?q=" + encodeURIComponent(q), credentials);
@@ -129,7 +146,14 @@ await withServer(password, async (request, base) => {
   const apps = JSON.parse(await readFile("src/data/apps.json", "utf8"));
   const detail = await request("/app/" + encodeURIComponent(apps[0].slug), credentials);
   assert.equal(detail.status, 200);
-  await detail.body?.cancel();
+  const detailHtml = await detail.text();
+  assert.match(detailHtml, /Apple iTunes Search API/);
+  assert.match(detailHtml, /Refresh from Apple/);
+  assert.match(detailHtml, /Unavailable/);
+  for (const url of ["https://www.facebook.com/ads/library/", "https://adstransparency.google.com/", "https://ads.tiktok.com/business/creativecenter/"]) assert.ok(detailHtml.includes(url));
+  const unknown = await request("/app/not-a-real-app", credentials);
+  assert.equal(unknown.status, 404, "Unknown slugs must never return a fuzzy match for a different app");
+  await unknown.body?.cancel();
   let limited = false;
   for (let i = 0; i < 61; i++) {
     const response = await request("/api/search", credentials);

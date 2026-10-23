@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { allApps } from "@/lib/data";
 import { searchWholeStoreLive } from "@/lib/store-live";
 import { getAccessDenial } from "@/lib/access.mjs";
-import { consumeSearchBudget, findLocalMatches, mergeSearchResults, parseSearchQuery } from "@/lib/request-limits.mjs";
+import { consumeSearchBudget, findLocalMatches, mergeSearchResults, parseSearchQuery, toSearchResult } from "@/lib/request-limits.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 10;
@@ -26,8 +26,9 @@ export async function GET(request: Request) {
   const localMatches = findLocalMatches(allApps, q);
   if (q.length >= 2 && (searchParams.get("live") === "true" || localMatches.length < 4)) {
     try {
-      const liveMatches = await searchWholeStoreLive(q);
-      return json({ results: mergeSearchResults(localMatches, liveMatches), fromLiveStore: true });
+      const liveMatches = (await searchWholeStoreLive(q)).map(toSearchResult);
+      const results = searchParams.get("live") === "true" ? liveMatches : mergeSearchResults(localMatches, liveMatches);
+      return json({ results, fromLiveStore: true });
     } catch {
       return json({ results: localMatches, error: "Live search is temporarily unavailable. Please try again shortly.", fromLiveStore: false }, 503);
     }

@@ -3,9 +3,9 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "openkitty - Mobile App & Game Market Intelligence",
-  description: "Market intelligence across the entire App Store and Google Play Store. Track app & game revenues, downloads, winning ads, paywall tear downs, and ASO rankings.",
-  keywords: "openkitty, app intelligence, mobile games market, app store revenue, download estimates, mobile ad spy, aso tools",
+  title: "OpenKitty - Free App Store Research",
+  description: "Explore Apple App Store listings, ratings, prices and screenshots with clear sources and free ad library links. Unsupported metrics are marked unavailable.",
+  keywords: "openkitty, App Store research, store listings, ad libraries",
 };
 
 export default function RootLayout({
@@ -25,14 +25,14 @@ export default function RootLayout({
             <div className="flex items-center gap-2">
               <span className="font-bold text-white tracking-tight">openkitty</span>
               <span className="text-zinc-600">—</span>
-              <span>Whole App Store & Google Play Store Intelligence</span>
+              <span>Free App Store research</span>
             </div>
             <div className="flex items-center gap-4 text-zinc-500 text-[11px]">
-              <span>Updated Daily</span>
+              <span>Sources shown on each listing</span>
               <span>•</span>
-              <span>15,000+ Indexed Apps & Games</span>
+              <span>US iOS catalog sample</span>
               <span>•</span>
-              <span>Live Store Querying</span>
+              <span>Live Apple search</span>
             </div>
           </div>
         </footer>
