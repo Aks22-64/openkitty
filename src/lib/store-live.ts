@@ -1,4 +1,5 @@
 import { AppItem } from "./types";
+import { fetchBoundedStoreJson, MAX_STORE_RESULTS, parseSearchQuery } from "./request-limits.mjs";
 
 const EST_POWER_DOWNLOADS = 0.88;
 const EST_POWER_REVENUE = 0.94;
@@ -23,7 +24,15 @@ function calcDynamicMetrics(rank: number, price: number) {
   return { dailyDl, monthlyDl, lifetimeDl, dailyRev, monthlyRev, lifetimeRev, velocity, momentum };
 }
 
-export function normalizeRawApp(item: any, rank = 150): AppItem {
+interface RawStoreApp {
+  trackId?: number; id?: string; trackName?: string; title?: string; name?: string;
+  sellerName?: string; artistName?: string; developer?: string; primaryGenreName?: string;
+  genres?: string[]; category?: string; artworkUrl512?: string; artworkUrl100?: string; icon?: string;
+  price?: number; averageUserRating?: number; score?: number; userRatingCount?: number; ratings?: number;
+  releaseDate?: string; released?: string; screenshotUrls?: string[]; screenshots?: string[]; description?: string;
+}
+
+export function normalizeRawApp(item: RawStoreApp, rank = 150): AppItem {
   const id = String(item.trackId || item.id || "");
   const name = item.trackName || item.title || item.name || "Unknown App";
   const developer = item.sellerName || item.artistName || item.developer || "Developer";
@@ -86,63 +95,28 @@ export function normalizeRawApp(item: any, rank = 150): AppItem {
   };
 }
 
-/**
- * Searches the ENTIRE App Store live in real-time ($0 Cost)
- */
+// The transport enforces a fixed Apple origin, time/size bounds, and process-local limits.
 export async function searchWholeStoreLive(query: string): Promise<AppItem[]> {
-  if (!query.trim()) return [];
-  try {
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=software&limit=30&country=us`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 3600 } // cache for 1 hour at $0
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.results || []).map((item: any, idx: number) => normalizeRawApp(item, idx + 1));
-  } catch (err) {
-    console.error("Live store search failed:", err);
-    return [];
-  }
+  const term = parseSearchQuery(query);
+  if (term.length < 2) return [];
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=software&limit=${MAX_STORE_RESULTS}&country=us`;
+  const data = await fetchBoundedStoreJson(url);
+  if (!Array.isArray(data?.results)) return [];
+  return data.results.slice(0, MAX_STORE_RESULTS)
+    .filter((item: RawStoreApp) => item && typeof item === "object" && /^\d+$/.test(String(item.trackId || item.id || "")))
+    .map((item: RawStoreApp, idx: number) => normalizeRawApp(item, idx + 1));
 }
 
-/**
- * Fetches ANY app from the whole App Store by numeric ID or slug ($0 Cost)
- */
 export async function fetchLiveAppFromStore(idOrSlug: string): Promise<AppItem | null> {
-  try {
-    // If numeric ID or id123456
-    const numericId = idOrSlug.replace(/[^0-9]/g, "");
-    if (numericId.length >= 6) {
-      const url = `https://itunes.apple.com/lookup?id=${numericId}&country=us`;
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        next: { revalidate: 3600 }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          return normalizeRawApp(data.results[0], 50);
-        }
-      }
-    }
-
-    // Otherwise search by slug/name
-    const cleanTerm = idOrSlug.replace(/-/g, " ");
-    const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanTerm)}&entity=software&limit=5&country=us`;
-    const sRes = await fetch(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 3600 }
-    });
-    if (sRes.ok) {
-      const sData = await sRes.json();
-      if (sData.results && sData.results.length > 0) {
-        return normalizeRawApp(sData.results[0], 50);
-      }
-    }
-    return null;
-  } catch (err) {
-    console.error("Live lookup failed:", err);
-    return null;
-  }
+  const term = parseSearchQuery(idOrSlug);
+  if (term.length < 2) return null;
+  // Only numeric IDs are lookups; arbitrary slugs cannot alter the URL origin or path.
+  const numericId = /^(?:id)?(\d{6,20})$/.exec(term)?.[1];
+  const url = numericId
+    ? `https://itunes.apple.com/lookup?id=${numericId}&country=us`
+    : `https://itunes.apple.com/search?term=${encodeURIComponent(term.replace(/-/g, " "))}&entity=software&limit=1&country=us`;
+  const data = await fetchBoundedStoreJson(url);
+  const item = Array.isArray(data?.results) ? data.results[0] : undefined;
+  if (!item || typeof item !== "object" || !/^\d+$/.test(String(item.trackId || item.id || ""))) return null;
+  return normalizeRawApp(item, 50);
 }

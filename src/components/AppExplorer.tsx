@@ -48,6 +48,7 @@ export default function AppExplorer({
   // Live Store Search across entire App Store & Play Store
   const [liveResults, setLiveResults] = useState<AppItem[] | null>(null);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   // Active working dataset
   const activeDataset = liveResults || initialApps;
@@ -76,14 +77,17 @@ export default function AppExplorer({
     if (!searchQuery.trim()) return;
 
     setIsSearchingLive(true);
+    setSearchError("");
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&live=true`);
       const data = await res.json();
-      if (data.results && data.results.length > 0) {
+      if (!res.ok) setSearchError(data.error || "Search is temporarily unavailable. Please try again.");
+      if (Array.isArray(data.results)) {
         setLiveResults(data.results);
       }
     } catch (err) {
       console.error("Live search failed:", err);
+      setSearchError("Search is temporarily unavailable. Please try again.");
     } finally {
       setIsSearchingLive(false);
     }
@@ -273,6 +277,8 @@ export default function AppExplorer({
         </button>
       </div>
 
+      {searchError && <p role="alert" className="text-sm text-red-300">{searchError}</p>}
+
       {/* Search & Filter Bar */}
       <div className="space-y-3">
         <form onSubmit={handleTriggerLiveStoreSearch} className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
@@ -281,6 +287,7 @@ export default function AppExplorer({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <input
               type="text"
+              maxLength={120}
               placeholder="Search across the whole App Store & Google Play Store (any app or game)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

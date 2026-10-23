@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { getAccessDenial } from "@/lib/access.mjs";
+import { MAX_QUERY_LENGTH } from "@/lib/request-limits.mjs";
 import Link from "next/link";
 import { getAppBySlug, allApps } from "@/lib/data";
 import { fetchLiveAppFromStore } from "@/lib/store-live";
@@ -23,11 +26,14 @@ interface PageProps {
 }
 
 export default async function AppDetailPage({ params }: PageProps) {
+  if (await getAccessDenial(await headers())) notFound();
   const { slug } = await params;
+  if (slug.length > MAX_QUERY_LENGTH) notFound();
   let app = getAppBySlug(slug);
 
   if (!app) {
-    app = (await fetchLiveAppFromStore(slug)) || undefined;
+    try { app = (await fetchLiveAppFromStore(slug)) || undefined; }
+    catch { return <p role="status">Live store lookups are temporarily unavailable. Please try again shortly.</p>; }
   }
 
   if (!app) {

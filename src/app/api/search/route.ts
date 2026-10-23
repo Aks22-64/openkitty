@@ -1,38 +1,36 @@
 import { NextResponse } from "next/server";
 import { allApps } from "@/lib/data";
 import { searchWholeStoreLive } from "@/lib/store-live";
+import { getAccessDenial } from "@/lib/access.mjs";
+import { consumeSearchBudget, findLocalMatches, mergeSearchResults, parseSearchQuery } from "@/lib/request-limits.mjs";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 10;
+
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: {
+    "Cache-Control": "private, no-store",
+    ...(status === 429 ? { "Retry-After": "60" } : {}),
+  } });
+}
 
 export async function GET(request: Request) {
+  // Enforce access here too, independently of middleware.
+  const denied = await getAccessDenial(request.headers);
+  if (denied) return denied;
+  if (!consumeSearchBudget()) return json({ error: "Too many searches. Please try again shortly." }, 429);
   const { searchParams } = new URL(request.url);
-  const q = (searchParams.get("q") || "").trim().toLowerCase();
-  const live = searchParams.get("live") === "true";
-
-  if (!q) {
-    return NextResponse.json({ results: allApps.slice(0, 48) });
-  }
-
-  // 1. Search local 2,050 apps
-  const localMatches = allApps.filter(a => 
-    a.name.toLowerCase().includes(q) ||
-    a.developer.toLowerCase().includes(q) ||
-    a.category.toLowerCase().includes(q)
-  );
-
-  // 2. If live search requested OR fewer than 4 local matches, query the whole store live
-  if (live || localMatches.length < 4) {
-    const liveMatches = await searchWholeStoreLive(q);
-    
-    // Deduplicate against local matches
-    const seenIds = new Set(localMatches.map(a => a.id));
-    const combined = [...localMatches];
-    for (const item of liveMatches) {
-      if (!seenIds.has(item.id)) {
-        seenIds.add(item.id);
-        combined.push(item);
-      }
+  let q: string;
+  try { q = parseSearchQuery(searchParams.get("q") || ""); }
+  catch { return json({ error: "Use a search of up to 120 characters without control characters." }, 400); }
+  const localMatches = findLocalMatches(allApps, q);
+  if (q.length >= 2 && (searchParams.get("live") === "true" || localMatches.length < 4)) {
+    try {
+      const liveMatches = await searchWholeStoreLive(q);
+      return json({ results: mergeSearchResults(localMatches, liveMatches), fromLiveStore: true });
+    } catch {
+      return json({ results: localMatches, error: "Live search is temporarily unavailable. Please try again shortly.", fromLiveStore: false }, 503);
     }
-    return NextResponse.json({ results: combined, fromLiveStore: true });
   }
-
-  return NextResponse.json({ results: localMatches, fromLiveStore: false });
+  return json({ results: localMatches, fromLiveStore: false });
 }

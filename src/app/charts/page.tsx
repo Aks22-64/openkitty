@@ -85,7 +85,7 @@ export default function ChartsPage() {
 
   // Filter and sort by user specifications
   const filteredGenres = useMemo(() => {
-    let filtered = genreStats.list.filter((g) => {
+    const filtered = genreStats.list.filter((g) => {
       if (scope === "games" && !g.isGame) return false;
       if (scope === "apps" && g.isGame) return false;
       return true;

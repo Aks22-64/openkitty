@@ -1,73 +1,64 @@
-# openkitty 🐱⚡
+# OpenKitty — personal fork
 
-> **100% Free, Open-Source Mobile App & Game Market Intelligence Platform**  
-> Operating at **$0/month** infrastructure & data costs forever.
+A password-protected fork of [Ishak-ctrl-ui/openkitty](https://github.com/Ishak-ctrl-ui/openkitty), a Next.js app for exploring public App Store information.
 
-A sleek, premium, high-performance alternative to AppKittie, Sensor Tower, and Data.ai — designed with a luxury minimalist black-and-white theme, built for product managers, indie hackers, and app founders.
+**Data quality:** app listings and images come from store data, but many revenue, download, trend, ad and paywall figures are estimates, simulations or hardcoded examples. They are not verified market intelligence.
 
----
+## Security changes
 
-## 🌟 Core Features
+- Next.js 15.5.28 and React/React DOM 19.0.9, with patched transitive dependencies locked in `pnpm-lock.yaml`.
+- Dependency lifecycle scripts disabled. The supported package manager is pinned to pnpm 11.25.0; both workspace settings and install commands enforce this policy.
+- HTTP Basic authentication on app pages and API requests. The search API and live app-detail page also check credentials independently of middleware. Missing or short passwords fail closed with HTTP 503.
+- Live store requests have a 5-second deadline, a 1 MB response limit, fixed Apple endpoints, no redirects, and at most two concurrent requests per process. Store queries are limited to 120 characters.
+- Search responses contain at most 48 results. Process-local guards allow 60 API searches and 20 outgoing store requests per minute. These guards are not a distributed rate limiter; strong password protection is the main access boundary. Public deployments would additionally need an edge/distributed rate limit.
+- Unused server-side image optimization is disabled, and basic security response headers are set.
+- CI runs dependency audit, lint, type checking, security tests, production build and HTTP smoke tests. Actions are pinned to commit hashes.
 
-- **Whole Store Intelligence Bridge**: Combines an indexed database of **15,000+ top apps & games** with an on-demand live store query engine (`/api/search?live=true` and dynamic `/app/[slug]`) to query all 5,000,000+ apps across the entire App Store and Google Play Store.
-- **Interactive Genre Performance Charts (`/charts`)**: Fully customizable comparative analytics engine where users can compare revenues, download volumes, market share %, and average revenue per app across 18 game subgenres and 24 utility categories.
-- **✨ Latest Releases Filter (2025–2026)**: Instant toggle to explore 5,100+ breakout apps and games released in the current year.
-- **Trending & Momentum (`/trending`)**: Real-time tracking of apps climbing store ranks with high adoption velocity.
-- **Rising Stars (`/rising`)**: Breakout newcomers with rapid 24-hour rank ascents.
-- **Mobile Ad Creative Spy (`/ads`)**: Active ad creatives across Meta (FB/IG) and TikTok with 1-click inspection directly in Meta Ad Library.
-- **Paywall & Onboarding Teardowns (`/onboarding`)**: Subscription pricing architectures, annual vs weekly tier pricing, and free-trial conversion structures.
-- **ASO Keyword Radar (`/aso`)**: High-intent App Store search queries, search popularity ratings, keyword difficulty scores, and competitor density.
-- **App Deep-Dive Teardowns (`/app/[slug]`)**: Instant financial teardown, monthly revenue & download velocity, in-app purchases, and high-res store screenshots.
+The dependency audit is a point-in-time check, not a guarantee against unknown vulnerabilities. Re-run it before deployment and when updating dependencies. PostCSS, source-map-js, postcss-selector-parser, brace-expansion and sharp have explicit patched overrides because upstream ranges may otherwise retain vulnerable versions. Remove an override only after re-auditing and testing its replacement.
 
----
+## Run locally
 
-## 🛠️ Tech Stack & $0 Architecture
+Use Node.js 24 LTS and pnpm 11.25.0. The supported Node range also permits recent Node 22 and 25 for development.
 
-| Layer | Technology | Monthly Cost |
-|---|---|---|
-| **Framework** | Next.js 15 (App Router, React 19, TypeScript) | **$0** |
-| **Styling** | Tailwind CSS v3 (Minimalist Luxury Monochrome) | **$0** |
-| **Hosting** | Vercel Hobby Tier / Cloudflare Pages | **$0** |
-| **Data Engine** | Apple RSS + iTunes Lookup + Google Play Bridge | **$0** |
-| **Media Delivery** | Streamed directly from Apple/Google CDNs | **$0** |
-| **Total Cost** | **Zero Data or Subscription Fees** | **$0.00 / month** |
-
----
-
-## 🚀 Quick Start
-
-### 1. Run Locally
-
-```bash
-# Clone the repository
-git clone https://github.com/Ishak-ctrl-ui/openkitty.git
-cd openkitty
-
-# Install dependencies with pnpm
-pnpm install
-
-# Start the development server
-pnpm dev
-
-# Or build and launch the production server
-pnpm build
-pnpm start
+```sh
+pnpm install --frozen-lockfile --ignore-scripts
+cp .env.example .env.local
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Visit `http://localhost:3000` in your browser.
+Put the generated value in `.env.local` as `OPENKITTY_PASSWORD`. Do not paste it into chat, commit it, or use a `NEXT_PUBLIC_` variable. Passwords must contain at least 24 non-padding characters and be no more than 256 characters.
 
----
+```sh
+pnpm dev
+```
 
-## 🚢 Deploy to Vercel at $0
+Open http://127.0.0.1:3000 and sign in with username **openkitty** and your generated password. Development and production start commands bind only to the loopback interface by default.
 
-1. Push your repository to GitHub.
-2. Sign in to [Vercel](https://vercel.com/) (free Hobby account).
-3. Click **"Add New Project"** and import your `openkitty` repository.
-4. Leave all build settings as default (Framework: **Next.js**).
-5. Click **"Deploy"** — your platform is live globally on a free `.vercel.app` domain with automatic HTTPS and edge caching!
+## Deploy your fork on Vercel
 
----
+1. Import **Aks22-64/openkitty** into your Vercel account and select the `main` branch.
+2. Use the Next.js framework preset, repository root, and Node.js 24.
+3. Add `OPENKITTY_PASSWORD` to the Production and Preview environment settings, using a newly generated strong password. Keep it server-only.
+4. Deploy. `vercel.json` pins the install command to pnpm 11.25.0, freezes the lockfile, disables install scripts, and uses the standard Next.js build.
+5. Open the HTTPS deployment URL and sign in with username **openkitty** and your password.
 
-## 📜 License
+A deployment without the password will deliberately show an unavailable response. Password changes require updating the environment variable and redeploying. Basic authentication must be used over HTTPS outside localhost. The repository and its public app-store dataset remain public; this password controls use of the running app, not access to the open-source files.
 
-MIT License — free for personal and commercial use.
+## Verify changes
+
+```sh
+pnpm audit
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:smoke
+```
+
+The smoke test starts temporary loopback-only production servers with an ephemeral test password and shuts them down afterwards. It does not query Apple or require your real password. Tests cover missing/wrong credentials, a middleware-bypass header, search limits and throttling, disabled image optimization, and normal authenticated pages.
+
+## Data refresh
+
+The upstream scheduled ingestion is disabled in this fork. Its legacy script replaces the bundled 15,000-record dataset with a much smaller collection, so it should not be enabled casually. A manual run additionally requires the repository variable `ENABLE_DATA_SYNC=true`. Review the ingestion behavior before setting that variable.
+
+The original source, history and attribution are retained. Upstream describes the project as MIT licensed.
